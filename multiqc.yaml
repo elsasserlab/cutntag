@@ -1,0 +1,68 @@
+title: "Custom report"
+subtitle: "For spike-in scaled paired-end sequencing"
+intro_text: "Custom workflow to account for spike-in scaling"
+report_comment: "The workflow aligns reads to a target and spike-in genome with bowtie, deduplicates and excludes blacklisted regions, and produces scaled bigwig files according to the spikein. Afterwards MACS3 is called with default parameters (narrow peaks and no control sample) with PE mode and default cutoffs. Currently, scaling is performed with proper pair counts only, but it can be changed to use all fragments instead."
+show_analysis_paths: False
+skip_generalstats: true
+ignore_images: false
+
+top_modules:
+    - custom_data
+
+custom_data:
+    scaling:
+        file_format: 'tsv'
+        id: 'scaling'
+        section_name: 'Mapping stats and scaling'
+        plot_type: 'table'
+        pconfig:
+            id: 'scaling'
+            namespace: 'scaling stats'
+        headers:
+            library:
+                description: "Library name"
+            target_mapped:
+                description: "Number of reads aligned to target genome"
+                format: "{:,.0f}"
+            target_dedup:
+                description: "Target reads after deduplication"
+                format: "{:,.0f}"
+            target_fltd:
+                description: "Target dedup reads after exclude list filtering"
+                format: "{:,.0f}"
+            target_fltd_unique:
+                description: "Target dedup reads after exclude list that are not multimappers"
+                format: "{:,.0f}"
+            spikein_mapped:
+                description: "Number of reads aligned to spike-in genome"
+                format: "{:,.0f}"
+            spikein_dedup:
+                description: "Spike-in reads after deduplication"
+                format: "{:,.0f}"
+            spikein_fltd:
+                description: "Spike-in reads after exclude list filtering"
+                format: "{:,.0f}"
+            spikein_fltd_unique:
+                description: "Spike-in reads after exclude list filtering that are not multimappers"
+                format: "{:,.0f}"
+            spikein_factor:
+                description: "Scaling factor calculated according to dedup, filtered reads (excluding multimappers)"
+                format: "{:,.2f}"
+            scaling_factor:
+                description: "Scaling factor taking into account genome-size (spike-in factor reference should be close to 1x global)"
+                format: "{:,.2f}"
+
+
+table_columns_placement:       
+  scaling:
+    library: 1
+    target_mapped: 2.5
+    target_dedup: 3
+    target_fltd: 4
+    target_fltd_unique: 5
+    spikein_mapped: 6
+    spikein_dedup: 7
+    spikein_fltd: 10
+    spikein_fltd_unique: 12
+    spikein_factor: 13
+    scaling_factor: 14
