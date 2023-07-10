@@ -31,20 +31,32 @@ mean of 1. The rest of the libraries are relative to it.
 
 ## Setup
 
-1. Create a conda environment using the `environment.yml` file provided.
+1. Create a conda environment using the `environment.yml` file provided:
 
 ```
 mamba env create -n cutntag -f environment.yml
 ```
 
-2. Activate the environment
+2. Activate the environment:
 
 ```
 conda activate cutntag
-``` 
+```
 
-3. Copy the `cutntag.yaml` file to your running experiment directory (where the `fastq` directory with the FASTQ files is contained).
-4. Run snakemake defining target, spikein and reflib parameters:
+3. Install `macs3` via pip:
+
+```
+pip install macs3
+```
+
+4. Clone this repository:
+
+```
+git clone https://github.com/cnluzon/cutntag.git
+```
+
+4. Edit the `genomes.yaml` file in it with the necessary values.
+5. Run snakemake defining target, spikein and reflib parameters:
 
 ```
 snakemake -p -s /path/to/cutntag/Snakemake --rerun-incomplete --config target=mm39 spikein=dm6 reflib=df_library
@@ -58,10 +70,7 @@ must match one of the references in the same file. For an example of those files
 The workflow will run on all the FASTQ file pairs provided in the `fastq` directory in the running directory.
 
 Additionally, it needs a cutntag.yaml file that contains paths to the reference genome files, bowtie indexes and exclude BED files.
-It takes as parameters `target` and `spikein` which should match a genome in the `config.yaml` file, and `reflib` as the
+It takes as parameters `target`, `spikein` which should match a genome in the `genomes.yaml` file, and `reflib` as the
 prefix of the fastq file pair that serves as spikein reference. For instance, for `tf_library_R1.fastq.gz`, `tf_library_R2.fastq.gz`,
 the value would be `tf_library` (without the `_R1.fastq.gz`).
-
-
-
 
