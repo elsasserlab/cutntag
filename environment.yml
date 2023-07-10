@@ -1,0 +1,17 @@
+channels:
+  - conda-forge
+  - bioconda
+  - defaults
+dependencies:
+  - nomkl
+  - python
+  - ruamel.yaml
+  - snakemake-minimal >= 7.25.0
+  - samtools >=1.13
+  - bowtie2 >=2.4.4
+  - deeptools >=3.5.0
+  - picard >=2.26.0
+  - fastqc >=0.11.9
+  - bedtools >=2.30.0
+  - multiqc >=1.14
+  - pandas >= 2.0.2
