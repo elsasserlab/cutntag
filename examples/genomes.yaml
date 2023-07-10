@@ -1,0 +1,18 @@
+# Each reference genome added here can be used as reference for aligning to 
+# target and spikein. The corresponding parameter must match the reference name.
+
+# Reference name
+mm9:
+    # Genome size - Passed to bamCoverage --effectiveGenomeSize
+    size: "2620345972"
+
+    # Path to reference - must contain also a bowtie2 reference index file set.
+    ref: "/path/to/mm9"
+
+    # Exclude loci set (BED file)
+    exclude: "/path/to/exclude.bed"
+
+dm6:
+    size: "137078499"
+    ref: "/path/to/dm6"
+    exclude: "/path/to/dm6-exclude.v2.bed"
