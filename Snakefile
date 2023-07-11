@@ -536,10 +536,12 @@ rule call_peaks:
     params:
         genome_size=genomes[TARGET]["size"],
         peaksdir="final/peaks/"
+    log:
+        "log/peaks/{sample}.peaks.log"
     shell:
         "macs3 callpeak"
         " -t {input.bam}"
         " -n {wildcards.sample}"
         " -s {params.genome_size}"
         " -f BAMPE"
-        " --outdir {params.peaksdir}"
+        " --outdir {params.peaksdir} 2> {log}"
