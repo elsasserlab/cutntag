@@ -65,6 +65,16 @@ snakemake -p -s /path/to/cutntag/Snakemake --rerun-incomplete --config target=mm
 Note that `target`, `spikein` and `reflib` parameters can also be defined in the `cutntag.yaml` file, and that their values
 must match one of the references in the same file. For an example of those files, check the 
 
+### Optional: Run RPGC bigWigs and no-spikein alignment
+
+It is possible to run this simple pipeline only producing RPGC scaled bigwigs
+for the targets, if one has samples with no spike-ins so no scaling possible.
+In this case, one runs:
+
+```
+snakemake -p -s /path/to/cutntag/Snakemake no_spikein --rerun-incomplete --config target=mm39
+```
+
 ### Configuration
 
 The workflow will run on all the FASTQ file pairs provided in the `fastq` directory in the running directory.
