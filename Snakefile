@@ -21,32 +21,30 @@ SPIKEIN = config.get("spikein")
 REF_LIBRARY = config.get("reflib")
 QUALITY_CUTOFF = config.get("minquality", "20")
 FRAG_LEN = 150
-
 SAMPLES, = glob_wildcards("fastq/{sample}_R1.fastq.gz")
 
 genomes_config = os.path.join(os.path.dirname(workflow.snakefile), "genomes.yaml")
 genomes = parse_yaml(genomes_config)
 validate_config(config, genomes)
 
-spikein_multiqc_inputs = [
+spikein_multiqc_inputs = ([
     "reports/scaling_mqc.tsv",
     "reports/totals_stats_summary_mqc.tsv",
     "reports/pairs_stats_summary_mqc.tsv",
-]
+] + expand("log/bowtie/{sample}.spikein.all.bowtie.txt", sample=SAMPLES)
+  + expand("stats/{sample}.dedup.spikein.metrics", sample=SAMPLES)
+)
 
 target_multiqc_inputs = [
     "reports/totals_stats_summary_target_mqc.tsv",
     "reports/pairs_stats_summary_target_mqc.tsv",
-
 ]
 
 multiqc_inputs = (
     expand("stats/final/{sample}.insertsizes.txt", sample=SAMPLES)
     + expand("reports/fastqc/{sample}_R{read}_fastqc/fastqc_data.txt", sample=SAMPLES, read=(1, 2))
     + expand("log/bowtie/{sample}.target.all.bowtie.txt", sample=SAMPLES)
-    + expand("log/bowtie/{sample}.spikein.all.bowtie.txt", sample=SAMPLES)
     + expand("stats/{sample}.dedup.target.metrics", sample=SAMPLES)
-    + expand("stats/{sample}.dedup.spikein.metrics", sample=SAMPLES)
     + expand("final/peaks/{sample}_peaks.xls", sample=SAMPLES)
 )
 
@@ -168,7 +166,7 @@ rule align_spikein:
     log:
         "log/bowtie/{sample}.spikein.all.bowtie.txt"
     params:
-        reference=genomes[SPIKEIN]["ref"],
+        reference=genomes[SPIKEIN]["ref"] if SPIKEIN else [],
     shell:
         "bowtie2"
         " -p {threads}"
@@ -238,7 +236,7 @@ rule remove_exclude_regions_spikein:
     input:
         bam="tmp/spikein/{sample}.dedup.bam",
     params:
-        exclude=genomes[SPIKEIN]["exclude"],
+        exclude=genomes[SPIKEIN]["exclude"] if SPIKEIN else [],
     output:
         bam="final/spikein/{sample}.bam"
     shell:

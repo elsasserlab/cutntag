@@ -72,19 +72,18 @@ def validate_reference(ref):
 
 def validate_config(config, genomes):
     check_parameter_exists(config, "target")
-    check_parameter_exists(config, "spikein")
-    check_parameter_exists(config, "reflib")
-
+    
     target = config.get("target")
     if target not in genomes.keys():
         msg = f"Unknown target reference {target}. Please add it to the genomes list"
         raise ValueError(msg)
-
     validate_reference(genomes[target])
 
     spikein = config.get("spikein")
-    if spikein not in genomes.keys():
-        msg = f"Unknown spikein reference {spikein}. Please add it to the genomes list"
-        raise ValueError(msg)
+    if spikein:
+        if spikein not in genomes.keys():
+            msg = f"Unknown spikein reference {spikein}. Please add it to the genomes list"
+            raise ValueError(msg)
+        validate_reference(genomes[spikein])
 
-    validate_reference(genomes[spikein])
+    
