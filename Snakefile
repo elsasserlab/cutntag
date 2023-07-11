@@ -45,8 +45,12 @@ multiqc_inputs = ([
 bigwigs = expand("final/bigwig/{sample}.bw", sample=SAMPLES) + \
           expand("final/bigwig/{sample}.unique.bw", sample=SAMPLES)
 
-bams = expand("final/target/{sample}.bam", sample=SAMPLES) + \
-       expand("final/spikein/{sample}.bam", sample=SAMPLES)
+rpgc_bigwigs = expand("final/bigwig/{sample}.rpgc.bw", sample=SAMPLES) + \
+          expand("final/bigwig/{sample}.unique.rpgc.bw", sample=SAMPLES)
+
+bams_target = expand("final/target/{sample}.bam", sample=SAMPLES)
+bams_spikein = expand("final/spikein/{sample}.bam", sample=SAMPLES)
+bams = bams_target + bams_spikein
 
 peaks = expand("final/peaks/{sample}_peaks.narrowPeak", sample=SAMPLES)
 
@@ -57,6 +61,13 @@ rule all:
         bigwigs,
         peaks,
         "reports/multiqc_report.html"
+
+
+rule no_spikein:
+    input:
+        bams_target,
+        peaks,
+        rpgc_bigwigs
 
 
 rule no_bigwigs:
@@ -378,7 +389,6 @@ rule write_scaling_factor:
             f.write(f"{n}")
 
 
-
 rule generate_scaled_bigwig:
     threads: 8
     input:
@@ -401,6 +411,30 @@ rule generate_scaled_bigwig:
         " --effectiveGenomeSize {params.genome_size}"
         " --extendReads {params.fraglen}"
         " --scaleFactor $(< {input.factor})"
+        " -o {output.bigwig}"
+        " 2> {log}"
+
+
+rule generate_unscaled_bigwig:
+    threads: 8
+    input:
+        bam="final/target/{sample}.bam",
+        index="final/target/{sample}.bai"
+    output:
+        bigwig="final/bigwig/{sample}.rpgc.bw"
+    log:
+        "log/final/{sample}.bw.log"
+    params:
+        genome_size=genomes[TARGET]["size"],
+        fraglen=FRAG_LEN
+    shell:
+        "bamCoverage"
+        " -p {threads}"
+        " -b {input.bam}"
+        " --binSize 1"
+        " --normalizeUsing RPGC"
+        " --effectiveGenomeSize {params.genome_size}"
+        " --extendReads {params.fraglen}"
         " -o {output.bigwig}"
         " 2> {log}"
 
