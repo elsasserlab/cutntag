@@ -21,32 +21,42 @@ SPIKEIN = config.get("spikein")
 REF_LIBRARY = config.get("reflib")
 QUALITY_CUTOFF = config.get("minquality", "20")
 FRAG_LEN = 150
-
 SAMPLES, = glob_wildcards("fastq/{sample}_R1.fastq.gz")
 
 genomes_config = os.path.join(os.path.dirname(workflow.snakefile), "genomes.yaml")
 genomes = parse_yaml(genomes_config)
 validate_config(config, genomes)
 
-multiqc_inputs = ([
-        "reports/scaling_mqc.tsv",
-        "reports/totals_stats_summary_mqc.tsv",
-        "reports/pairs_stats_summary_mqc.tsv",
-    ]
-    + expand("stats/final/{sample}.insertsizes.txt", sample=SAMPLES)
+spikein_multiqc_inputs = ([
+    "reports/scaling_mqc.tsv",
+    "reports/totals_stats_summary_mqc.tsv",
+    "reports/pairs_stats_summary_mqc.tsv",
+] + expand("log/bowtie/{sample}.spikein.all.bowtie.txt", sample=SAMPLES)
+  + expand("stats/{sample}.dedup.spikein.metrics", sample=SAMPLES)
+)
+
+target_multiqc_inputs = [
+    "reports/totals_stats_summary_target_mqc.tsv",
+    "reports/pairs_stats_summary_target_mqc.tsv",
+]
+
+multiqc_inputs = (
+    expand("stats/final/{sample}.insertsizes.txt", sample=SAMPLES)
     + expand("reports/fastqc/{sample}_R{read}_fastqc/fastqc_data.txt", sample=SAMPLES, read=(1, 2))
     + expand("log/bowtie/{sample}.target.all.bowtie.txt", sample=SAMPLES)
-    + expand("log/bowtie/{sample}.spikein.all.bowtie.txt", sample=SAMPLES)
     + expand("stats/{sample}.dedup.target.metrics", sample=SAMPLES)
-    + expand("stats/{sample}.dedup.spikein.metrics", sample=SAMPLES)
     + expand("final/peaks/{sample}_peaks.xls", sample=SAMPLES)
 )
 
 bigwigs = expand("final/bigwig/{sample}.bw", sample=SAMPLES) + \
           expand("final/bigwig/{sample}.unique.bw", sample=SAMPLES)
 
-bams = expand("final/target/{sample}.bam", sample=SAMPLES) + \
-       expand("final/spikein/{sample}.bam", sample=SAMPLES)
+rpgc_bigwigs = expand("final/bigwig/{sample}.rpgc.bw", sample=SAMPLES) + \
+          expand("final/bigwig/{sample}.unique.rpgc.bw", sample=SAMPLES)
+
+bams_target = expand("final/target/{sample}.bam", sample=SAMPLES)
+bams_spikein = expand("final/spikein/{sample}.bam", sample=SAMPLES)
+bams = bams_target + bams_spikein
 
 peaks = expand("final/peaks/{sample}_peaks.narrowPeak", sample=SAMPLES)
 
@@ -57,6 +67,14 @@ rule all:
         bigwigs,
         peaks,
         "reports/multiqc_report.html"
+
+
+rule no_spikein:
+    input:
+        bams_target,
+        rpgc_bigwigs,
+        peaks,
+         "reports/multiqc_report_no_spikein.html"
 
 
 rule no_bigwigs:
@@ -71,10 +89,25 @@ rule clean:
         "rm -rf final/ tmp/ stats/ reports/ scaling/ log/"
 
 
+rule multiqc_no_spikein:
+    output:
+        "reports/multiqc_report_no_spikein.html",
+    input:
+        multiqc_inputs,
+        target_multiqc_inputs,
+        multiqc_config=os.path.join(os.path.dirname(workflow.snakefile), "multiqc.yaml")
+    log:
+        "log/multiqc_report_no_spikein.log"
+    shell:
+        "multiqc -f -n multiqc_report_no_spikein -o reports/ -c {input.multiqc_config} {input} 2> {log}"
+
+
 rule multiqc:
     output: "reports/multiqc_report.html"
     input:
         multiqc_inputs,
+        spikein_multiqc_inputs,
+        target_multiqc_inputs,
         multiqc_config=os.path.join(os.path.dirname(workflow.snakefile), "multiqc.yaml")
     log:
         "log/multiqc_report.log"
@@ -133,7 +166,7 @@ rule align_spikein:
     log:
         "log/bowtie/{sample}.spikein.all.bowtie.txt"
     params:
-        reference=genomes[SPIKEIN]["ref"],
+        reference=genomes[SPIKEIN]["ref"] if SPIKEIN else [],
     shell:
         "bowtie2"
         " -p {threads}"
@@ -203,7 +236,7 @@ rule remove_exclude_regions_spikein:
     input:
         bam="tmp/spikein/{sample}.dedup.bam",
     params:
-        exclude=genomes[SPIKEIN]["exclude"],
+        exclude=genomes[SPIKEIN]["exclude"] if SPIKEIN else [],
     output:
         bam="final/spikein/{sample}.bam"
     shell:
@@ -286,6 +319,38 @@ rule library_stats:
             print(*d_pairs.values(), sep="\t", file=f)
 
 
+rule library_stats_target:
+    output:
+        total=temp("stats/{sample}.target.total.txt"),
+        pairs=temp("stats/{sample}.target.pairs.txt"),
+    input:
+        target_mapped="tmp/target/{sample}.all.flagstat.txt",
+        target_dedup="tmp/target/{sample}.dedup.flagstat.txt",
+        target_fltd="final/target/{sample}.flagstat.txt",
+        target_fltd_unique="final/target/{sample}.unique.flagstat.txt",
+    run:
+        d_total = dict(library=f"{wildcards.sample}")
+        d_pairs = dict(library=f"{wildcards.sample}")
+
+        for flagstat, name in [
+            (input.target_mapped, "target_mapped"),
+            (input.target_dedup, "target_dedup"),
+            (input.target_fltd, "target_fltd"),
+            (input.target_fltd_unique, "target_fltd_unique"),
+        ]:
+            d_total[name] = parse_flagstat(flagstat)["mapped"]
+            d_pairs[name] = parse_flagstat(flagstat)["pairs"]
+
+        with open(output.total, "w") as f:
+            print(*d_total.keys(), sep="\t", file=f)
+            print(*d_total.values(), sep="\t", file=f)
+
+        with open(output.pairs, "w") as f:
+            print(*d_pairs.keys(), sep="\t", file=f)
+            print(*d_pairs.values(), sep="\t", file=f)
+
+
+
 rule insert_size_metrics:
     threads: 4
     output:
@@ -304,6 +369,37 @@ rule insert_size_metrics:
         " MINIMUM_PCT=0.5"
         " STOP_AFTER=10000000"
         " 2> {log}"
+
+
+rule stats_summary_target:
+    output:
+        totals="reports/totals_stats_summary_target_mqc.tsv",
+        pairs="reports/pairs_stats_summary_target_mqc.tsv"
+    input:
+        totals=expand("stats/{sample}.target.total.txt", sample=SAMPLES),
+        pairs=expand("stats/{sample}.target.pairs.txt", sample=SAMPLES)
+    run:
+        header = [
+            "library",
+            "target_mapped",
+            "target_dedup",
+            "target_fltd",
+            "target_fltd_unique",
+        ]
+
+        with open(output.totals, "w") as f:
+            print(*header, sep="\t", file=f)
+            for stats_file in sorted(input.totals):
+                summary = parse_stats_fields(stats_file)
+                row = [summary[k] for k in header]
+                print(*row, sep="\t", file=f)
+
+        with open(output.pairs, "w") as f:
+            print(*header, sep="\t", file=f)
+            for stats_file in sorted(input.pairs):
+                summary = parse_stats_fields(stats_file)
+                row = [summary[k] for k in header]
+                print(*row, sep="\t", file=f)
 
 
 rule stats_summary:
@@ -378,7 +474,6 @@ rule write_scaling_factor:
             f.write(f"{n}")
 
 
-
 rule generate_scaled_bigwig:
     threads: 8
     input:
@@ -401,6 +496,30 @@ rule generate_scaled_bigwig:
         " --effectiveGenomeSize {params.genome_size}"
         " --extendReads {params.fraglen}"
         " --scaleFactor $(< {input.factor})"
+        " -o {output.bigwig}"
+        " 2> {log}"
+
+
+rule generate_unscaled_bigwig:
+    threads: 8
+    input:
+        bam="final/target/{sample}.bam",
+        index="final/target/{sample}.bai"
+    output:
+        bigwig="final/bigwig/{sample}.rpgc.bw"
+    log:
+        "log/final/{sample}.bw.log"
+    params:
+        genome_size=genomes[TARGET]["size"],
+        fraglen=FRAG_LEN
+    shell:
+        "bamCoverage"
+        " -p {threads}"
+        " -b {input.bam}"
+        " --binSize 1"
+        " --normalizeUsing RPGC"
+        " --effectiveGenomeSize {params.genome_size}"
+        " --extendReads {params.fraglen}"
         " -o {output.bigwig}"
         " 2> {log}"
 
